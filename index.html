@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Web MirrorLink</title>
+    <!-- Menggunakan Paho MQTT untuk signaling WebRTC tanpa setup server backend sendiri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #3b82f6;
+            --text: #f8fafc;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 { margin-bottom: 20px; font-size: 1.8rem; }
+        .setup-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-weight: 600;
+        }
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: #475569; }
+        input {
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+        }
+        .room-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #10b981;
+            background: #064e3b;
+            padding: 10px;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        #videoContainer {
+            margin-top: 20px;
+            width: 100%;
+            display: none;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+        }
+        .status { color: #94a3b8; font-style: italic; margin-top: 10px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Real-time Web MirrorLink</h1>
+    
+    <!-- Menu Awal Pilihan Mode -->
+    <div id="modeSelection" class="btn-group">
+        <button onclick="initMode('sender')">Bagikan Layar (Sender)</button>
+        <button onclick="initMode('receiver')" class="secondary">Terima Layar (Receiver)</button>
+    </div>
+
+    <!-- Tampilan untuk Sender (HP/Laptop yang mau di-mirror) -->
+    <div id="senderZone" class="setup-zone hidden">
+        <p>Masukkan Room ID yang muncul di layar penerima:</p>
+        <input type="text" id="inputRoomId" placeholder="Contoh: 4921">
+        <button onclick="startSender()">Mulai Mirroring</button>
+    </div>
+
+    <!-- Tampilan untuk Receiver (Laptop/TV penerima tampilan) -->
+    <div id="receiverZone" class="setup-zone hidden">
+        <p>Gunakan Room ID ini di perangkat pengirim:</p>
+        <div id="roomDisplay" class="room-display">-</div>
+        <p class="status">Menunggu koneksi dari pengirim...</p>
+    </div>
+
+    <div id="statusMessage" class="status">Pilih mode untuk memulai</div>
+
+    <!-- Tempat Menampilkan Hasil Mirroring (Real-time) -->
+    <div id="videoContainer">
+        <video id="mirrorVideo" autoplay playsinline controls></video>
+    </div>
+</div>
+
+<script>
+// Konfigurasi WebRTC & Signaling Broker Gratis
+const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let mqttClient;
+let peerConnection;
+let localStream;
+let myMode = '';
+let roomId = '';
+
+// Broker MQTT publik gratis untuk menjembatani koneksi awal (signaling)
+const MQTT_BROKER = "broker.hivemq.com"; 
+const MQTT_PORT = 8000;
+
+function initMode(mode) {
+    myMode = mode;
+    document.getElementById('modeSelection').classList.add('hidden');
+    
+    if (mode === 'sender') {
+        document.getElementById('senderZone').classList.remove('hidden');
+        updateStatus('Siap membagikan layar. Silakan masukkan Room ID Perangkat Penerima.');
+    } else {
+        document.getElementById('receiverZone').classList.remove('hidden');
+        // Membuat ID acak 4 digit sebagai pengganti IP otomatis
+        roomId = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById('roomDisplay').innerText = roomId;
+        setupMQTT(roomId);
+    }
+}
+
+function updateStatus(msg) {
+    document.getElementById('statusMessage').innerText = msg;
+}
+
+// Setup jaringan komunikasi antar perangkat menggunakan MQTT broker
+function setupMQTT(targetRoom) {
+    roomId = targetRoom;
+    const clientId = "mirror_" + Math.random().toString(16).substr(2, 8);
+    mqttClient = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientId);
+
+    mqttClient.onMessageArrived = handleSignalingMessage;
+    mqttClient.onConnectionLost = () => updateStatus("Koneksi jaringan terputus. Mencoba menghubungkan kembali...");
+
+    mqttClient.connect({
+        onSuccess: () => {
+            // Subscribe ke channel khusus room ini
+            mqttClient.subscribe("mirrorlink/" + roomId + "/#");
+            updateStatus("Terhubung ke jaringan. Menunggu Perangkat Pengirim...");
+        },
+        useSSL: false
+    });
+}
+
+// Alur kerja WebRTC untuk Pengirim Layar (Sender)
+async function startSender() {
+    const targetRoom = document.getElementById('inputRoomId').value.trim();
+    if (!targetRoom) return alert("Masukkan Room ID terlebih dahulu!");
+    
+    updateStatus("Meminta izin menangkap layar...");
+    try {
+        // Menangkap layar (Untuk HP sebagian browser mewajibkan interaksi user, gunakan Chrome/Firefox terbaru)
+        localStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "always" },
+            audio: false // Ubah ke true jika ingin membagikan suara sistem (tergantung OS)
+        });
+        
+        setupMQTT(targetRoom);
+        
+        // Buat Peer Connection
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        // Kirim sinyal kandidat jaringan (ICE) jika ditemukan
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                sendSignal('ice', event.candidate);
+            }
+        };
+
+        // Buat Penawaran Koneksi (Offer)
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sendSignal('offer', offer);
+        
+        // Tampilkan video lokal di sender sebagai preview
+        document.getElementById('videoContainer').style.display = 'block';
+        document.getElementById('mirrorVideo').srcObject = localStream;
+        document.getElementById('mirrorVideo').muted = true; // Mute agar tidak feedback gema
+        
+        updateStatus("Sedang menghubungkan real-time ke Penerima...");
+    } catch (err) {
+        console.error(err);
+        updateStatus("Gagal mengakses layar: " + err.message);
+    }
+}
+
+// Mengirim data sinyal via MQTT
+function sendSignal(type, data) {
+    const topic = `mirrorlink/${roomId}/${myMode === 'sender' ? 'client' : 'server'}`;
+    const message = new Paho.MQTT.Message(JSON.stringify({ type, data }));
+    message.destinationName = topic;
+    mqttClient.send(message);
+}
+
+// Memproses sinyal masuk dari perangkat sebelah
+async function handleSignalingMessage(message) {
+    const topic = message.destinationName;
+    const payload = JSON.parse(message.payloadString);
+    
+    // Abaikan pesan dari diri sendiri
+    if (myMode === 'sender' && topic.endsWith('/client')) return;
+    if (myMode === 'receiver' && topic.endsWith('/server')) return;
+
+    if (payload.type === 'offer' && myMode === 'receiver') {
+        // Penerima menerima tawaran dari pengirim
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        
+        // Tangkap video real-time yang masuk
+        peerConnection.ontrack = event => {
+            document.getElementById('videoContainer').style.display = 'block';
+            document.getElementById('mirrorVideo').srcObject = event.streams[0];
+            updateStatus("Mirroring Aktif (Real-time)!");
+        };
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) sendSignal('ice', event.candidate);
+        };
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        sendSignal('answer', answer);
+        
+    } else if (payload.type === 'answer' && myMode === 'sender') {
+        // Pengirim menerima persetujuan dari penerima
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data));
+        updateStatus("Terhubung! Layar Anda sedang dibagikan secara real-time.");
+        
+    } else if (payload.type === 'ice' && peerConnection) {
+        // Sinkronisasi jalur koneksi internet P2P terbaik
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(payload.data));
+        } catch (e) {
+            console.error("Gagal menambahkan ICE candidate", e);
+        }
+    }
+}
+</script>
+</body>
+</html>
