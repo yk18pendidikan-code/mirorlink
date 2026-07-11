@@ -3,361 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Cast & MirrorLink Pro</title>
-    <!-- PeerJS untuk koneksi real-time ultra low-latency -->
+    <title>NextGen Video Call & Mirror Workspace</title>
+    <!-- PeerJS untuk koneksi P2P WebRTC langsung antar perangkat -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg: #090d16;
-            --card: #131a2c;
-            --primary: #6366f1;
-            --success: #10b981;
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
             --danger: #ef4444;
-            --text: #f3f4f6;
-            --muted: #6b7280;
-            --border: #24324f;
+            --success: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            padding: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            max-width: 520px;
-            background: var(--card);
-            border-radius: 16px;
-            padding: 25px;
-            border: 1px solid var(--border);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-        }
-        h1 { font-size: 1.6rem; text-align: center; margin-bottom: 5px; color: #fff; }
-        .subtitle { font-size: 0.85rem; text-align: center; color: var(--muted); margin-bottom: 20px; }
-        
-        .setup-box {
-            background: rgba(0,0,0,0.2);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 8px; font-weight: 500; }
-        
-        .pin-input {
-            width: 100%;
-            padding: 12px;
-            font-size: 1.8rem;
-            font-weight: bold;
-            letter-spacing: 6px;
-            text-align: center;
-            background: #090d16;
-            border: 2px solid var(--border);
-            color: #fff;
-            border-radius: 10px;
-        }
-        .pin-input:focus { border-color: var(--primary); outline: none; }
 
-        /* Media Control Switchers */
-        .media-controls {
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 20px; display: flex; flex-direction: column; }
+
+        header { text-align: center; margin-bottom: 20px; }
+        header h1 { font-size: 1.8rem; color: #fff; }
+        header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+        .workspace {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .toggle-btn {
-            background: #1e293b;
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: 0.2s;
-        }
-        .toggle-btn.active {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--primary);
-            color: #a5b4fc;
-        }
-
-        .btn {
+            grid-template-columns: 1fr;
+            gap: 20px;
+            max-width: 1200px;
             width: 100%;
-            padding: 14px;
-            font-size: 1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            margin-bottom: 10px;
-            color: #fff;
-            transition: 0.2s;
+            margin: 0 auto;
+            flex: 1;
         }
-        .btn-green { background: var(--success); color: #090d16; }
-        .btn-purple { background: var(--primary); }
-        .btn-red { background: var(--danger); display: none; margin-top: 15px; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
-        .status-bar {
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+        @media (min-width: 768px) {
+            .workspace { grid-template-columns: 320px 1fr; }
+        }
+
+        /* Panel Kontrol Jaringan & Media */
+        .control-panel {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            height: fit-content;
+        }
+
+        .section-title { font-size: 0.9rem; font-weight: 700; uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px; }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: var(--text-muted); }
+        .room-input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 1.1rem; text-align: center; font-weight: bold; }
+        .room-input:focus { border-color: var(--accent); outline: none; }
+
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: 0.2s; color: #fff; margin-bottom: 10px; }
+        .btn-primary { background: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-success { background: var(--success); }
+        .btn-danger { background: var(--danger); }
+
+        .media-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .toggle-btn { padding: 10px; background: #334155; border: 1px solid #475569; border-radius: 6px; color: #fff; font-size: 0.8rem; cursor: pointer; }
+        .toggle-btn.active { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: #60a5fa; }
+
+        .status-box { padding: 10px; background: #0f172a; border-radius: 6px; font-size: 0.8rem; text-align: center; color: #38bdf8; border: 1px solid #1e293b; line-height: 1.4; }
+
+        /* Grid Video Call Display */
+        .video-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
             background: #090d16;
-            color: #a5b4fc;
-            text-align: center;
-            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 15px;
+            min-height: 400px;
+            border: 1px solid #1e293b;
         }
 
-        .active-panel { display: none; text-align: center; margin-top: 15px; }
-        .room-banner { font-size: 1.3rem; font-weight: bold; color: var(--success); background: rgba(16,185,129,0.1); padding: 10px; border-radius: 8px; }
+        @media (min-width: 600px) {
+            .video-grid { grid-template-columns: 1fr 1fr; }
+        }
 
-        /* Video Output & AirPlay Layer */
-        .video-container {
-            margin-top: 20px;
-            display: none;
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            border: 1px solid var(--border);
-        }
-        video {
-            width: 100%;
-            max-height: 55vh;
-            display: block;
-            object-fit: contain;
-        }
-        .cast-tip {
-            font-size: 0.75rem;
-            color: var(--muted);
-            margin-top: 6px;
-            text-align: center;
-            line-height: 1.3;
-        }
+        .video-wrapper { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; border: 1px solid #334155; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .video-label { position: absolute; bottom: 10px; left: 10px; background: rgba(15, 23, 42, 0.75); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; backdrop-filter: blur(4px); }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Universal Cast Pro</h1>
-    <p class="subtitle">Real-time Stream, Camera Flip & AirPlay Support</p>
+<header>
+    <h1>WebRTC P2P Video Link</h1>
+    <p>Dua Arah: Video Call, Kamera Flip, Mikrofon, & Share Screen</p>
+</header>
 
-    <!-- PANEL UTAMA SETUP -->
-    <div id="setupSection">
-        <div class="setup-box">
-            <div class="form-group">
-                <label for="roomPin">Buat / Masukkan PIN Kamar Bebas (4-6 Digit):</label>
-                <input type="number" id="roomPin" class="pin-input" placeholder="1234">
-            </div>
-
-            <!-- Pengaturan Media Sebelum Transmisi -->
-            <label>Konfigurasi Media Pengirim (HP):</label>
-            <div class="media-controls">
-                <button id="toggleCamera" class="toggle-btn active" onclick="switchCamera()">📷 Kamera: Belakang</button>
-                <button id="toggleMic" class="toggle-btn" onclick="switchMic()">🎙️ Mic: MATI</button>
-            </div>
+<div class="workspace">
+    <!-- PANEL KONTROL -->
+    <div class="control-panel">
+        <div class="section-title">1. Pengaturan Kamar</div>
+        <div class="input-group">
+            <label for="roomId">Buat / Masukkan ID Kamar Bebas:</label>
+            <input type="text" id="roomId" class="room-input" placeholder="contoh: kamar-ku">
         </div>
+        
+        <button class="btn btn-success" onclick="startRoom()">🟢 Buka / Masuk Kamar</button>
+        <button class="btn btn-danger" id="btnLeave" style="display:none;" onclick="leaveRoom()">🛑 Tinggalkan Kamar</button>
 
-        <!-- Tombol Aksi -->
-        <button class="btn btn-green" onclick="initReceiver()">📺 Jadikan Perangkat Ini PENERIMA (TV/PC)</button>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button class="btn btn-purple" onclick="initSender('screen')">💻 Transmisi Layar</button>
-            <button class="btn btn-purple" onclick="initSender('camera')">📸 Transmisi Kamera</button>
+        <div class="section-title" style="margin-top: 20px;">2. Media Anda (HP / PC)</div>
+        <div class="media-toggles">
+            <button id="micBtn" class="toggle-btn active" onclick="toggleMic()">🎙️ Mic: ON</button>
+            <button id="camBtn" class="toggle-btn active" onclick="toggleCam()">📷 Cam: ON</button>
         </div>
+        <button id="flipBtn" class="btn btn-primary" onclick="flipCamera()">🔄 Alihkan Kamera (Belakang)</button>
+        <button id="shareBtn" class="btn btn-primary" style="background: #64748b;" onclick="toggleScreenShare()">💻 Bagikan Layar</button>
+
+        <div class="section-title" style="margin-top: 20px;">Jalur Jaringan</div>
+        <div id="statusTxt" class="status-box">Status: Offline. Silakan tentukan ID Kamar.</div>
     </div>
 
-    <!-- PANEL AKTIF SAAT TERKONEKSI -->
-    <div id="activeSection" class="active-panel">
-        <div class="room-banner">Kamar Terhubung PIN: <span id="pinDisplay">0000</span></div>
-    </div>
-
-    <button id="btnDisconnect" class="btn btn-red" onclick="killConnection()">Putuskan & Reset Jaringan</button>
-
-    <!-- Monitor Status Jaringan -->
-    <div id="statusMessage" class="status-bar">Status: Menunggu Konfigurasi PIN...</div>
-
-    <!-- Area Player Screen dengan Atribut Airplay -->
-    <div class="video-container" id="videoArea">
-        <!-- x-webkit-airplay, airplay, & pip disiapkan untuk memicu kontrol native iOS/Mac/Android -->
-        <video id="viewscreen" autoplay playsinline controls 
-               x-webkit-airplay="allow" 
-               airplay="allow" 
-               webkit-playsinline 
-               picture-in-picture="allow">
-        </video>
-        <div class="cast-tip">
-            💡 <strong>Tips AirPlay / Smart TV:</strong> Ketuk tombol bawaan player di atas untuk memproyeksikan video langsung ke TV pintar Anda secara native.
+    <!-- AREA VIDEO CALL -->
+    <div class="video-grid">
+        <!-- Kamera Lokal (Diri Sendiri) -->
+        <div class="video-wrapper">
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div class="video-label">Anda (Lokal)</div>
+        </div>
+        <!-- Kamera Remote (Lawan Bicara / HP di TV) -->
+        <div class="video-wrapper">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div class="video-label">Koneksi Seberang (Remote)</div>
         </div>
     </div>
 </div>
 
 <script>
     let peer = null;
-    let currentCall = null;
     let localStream = null;
+    let currentCall = null;
     
-    // Status awal konfigurasi media pengirim
-    let cameraFacing = "environment"; // default kamera belakang
-    let micEnabled = false; // default mikrofon mati
+    // State default kontrol media
+    let isMicOn = true;
+    let isCamOn = true;
+    let currentFacingMode = "user"; // "user" = depan, "environment" = belakang
+    let isSharingScreen = false;
 
-    const ID_PREFIX = "universal-mirrorlink-secure-room-";
+    const PREFIX = "vcall-room-id-";
 
-    function updateStatus(txt) { document.getElementById('statusMessage').innerText = "Status: " + txt; }
+    function logStatus(msg) { document.getElementById('statusTxt').innerText = "Status: " + msg; }
 
-    // Fitur Sakelar Kamera (Depan/Belakang)
-    function switchCamera() {
-        const btn = document.getElementById('toggleCamera');
-        if (cameraFacing === "environment") {
-            cameraFacing = "user";
-            btn.innerText = "📷 Kamera: Depan";
-        } else {
-            cameraFacing = "environment";
-            btn.innerText = "📷 Kamera: Belakang";
+    // Ambil Akses Kamera dan Mikrofon secara Real-time
+    async function getMedia(constraints) {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            document.getElementById('localVideo').srcObject = localStream;
+            return true;
+        } catch (err) {
+            console.error(err);
+            alert("Gagal mengakses media: " + err.message);
+            return false;
         }
     }
 
-    // Fitur Sakelar Mikrofon (On/Off)
-    function switchMic() {
-        const btn = document.getElementById('toggleMic');
-        micEnabled = !micEnabled;
-        if (micEnabled) {
-            btn.classList.add('active');
-            btn.innerText = "🎙️ Mic: AKTIF";
-        } else {
-            btn.classList.remove('active');
-            btn.innerText = "🎙️ Mic: MATI";
-        }
-    }
+    // ================= EKSEKUSI UTAMA: MASUK KAMAR (VIDEO CALL) =================
+    async function startRoom() {
+        const roomId = document.getElementById('roomId').value.trim();
+        if(!roomId) return alert("Masukkan ID Kamar terlebih dahulu!");
 
-    // ================= 1. PROSEDUR SEBAGAI PENERIMA (TV / LAPTOP) =================
-    function initReceiver() {
-        const pin = document.getElementById('roomPin').value.trim();
-        if(pin.length < 4) return alert("Harap masukkan PIN minimal 4 angka!");
+        logStatus("Menyiapkan kamera & mikrofon...");
+        const mediaReady = await getMedia({
+            audio: isMicOn,
+            video: { facingMode: currentFacingMode, width: 640, height: 480 }
+        });
 
-        updateStatus("Membuka jalur transmisi di cloud...");
-        peer = new Peer(ID_PREFIX + pin, {
+        if(!mediaReady) return;
+
+        logStatus("Menghubungkan ke server Peer Cloud...");
+        
+        // Kita gunakan ID Kamar terikat agar salah satu bertindak sebagai 'Host' atau 'Guest' secara otomatis
+        peer = new Peer(PREFIX + roomId, {
             config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         });
 
-        peer.on('open', () => {
-            updateStatus("Menunggu Kiriman Sinyal Transmisi dari HP Anda...");
-            applyUILayout(pin);
+        peer.on('open', (id) => {
+            logStatus("Kamar aktif! Bagikan ID '" + roomId + "' ke perangkat lain.");
+            document.getElementById('btnLeave').style.display = "block";
         });
 
+        // SKENARIO 1: Menangani panggilan masuk (Jika perangkat ini adalah yang stand-by pertama kali / TV / PC)
         peer.on('call', (call) => {
-            updateStatus("Sinyal diterima! Menstabilkan pemutaran video...");
+            logStatus("Menerima panggilan masuk...");
             currentCall = call;
-            call.answer(); // Terima tanpa lempar stream balik
-
-            call.on('stream', (incomingStream) => {
-                renderVideoStream(incomingStream);
-                updateStatus("Koneksi Sukses! Layar Terproyeksi Real-time.");
+            call.answer(localStream); // Kirim balik stream video lokal kita sendiri (Dua Arah)
+            
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remoteVideo').srcObject = remoteStream;
+                logStatus("Terkoneksi! Video Call berjalan dua arah.");
             });
         });
 
-        peer.on('error', handleErrorEvent);
-    }
+        // SKENARIO 2: Jika ID sudah diambil, berarti perangkat kedua masuk. Kita panggil perangkat pertama.
+        peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+                logStatus("Kamar sudah terisi, mencoba menyambung sebagai peserta kedua...");
+                
+                // Buat peer dengan ID acak untuk menelepon kamar yang sudah stand-by
+                peer = new Peer({
+                    config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+                });
 
-    // ================= 2. PROSEDUR SEBAGAI PENGIRIM (HP / SUMBER DATA) =================
-    async function initSender(type) {
-        const pin = document.getElementById('roomPin').value.trim();
-        if(pin.length < 4) return alert("Harap masukkan PIN minimal 4 angka!");
-
-        updateStatus("Meminta otorisasi perangkat...");
-        try {
-            // Membangun Constraints Media Dinamis sesuai pilihan user di UI
-            let mediaConstraints = {
-                audio: micEnabled,
-                video: type === 'camera' ? { facingMode: cameraFacing, width: 1280, height: 720 } : true
-            };
-
-            if (type === 'screen') {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                    throw new Error("Sistem operasi HP memblokir rekam layar web penuh. Silakan gunakan opsi 'Transmisi Kamera' atau jalankan melalui Chrome PC.");
-                }
-                // Jika rekam layar diaktifkan, mik disatukan jika dipilih aktif
-                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: micEnabled });
+                peer.on('open', () => {
+                    currentCall = peer.call(PREFIX + roomId, localStream);
+                    logStatus("Menghubungkan sinyal...");
+                    
+                    currentCall.on('stream', (remoteStream) => {
+                        document.getElementById('remoteVideo').srcObject = remoteStream;
+                        logStatus("Terkoneksi! Hubungan dua arah berhasil.");
+                    });
+                });
             } else {
-                // Mengambil jalur kamera (Depan / Belakang) + Kondisi Mikrofon
-                localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+                logStatus("Error: " + err.message);
             }
-
-            updateStatus("Mencari Kamar Penerima...");
-            peer = new Peer({
-                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
-            });
-
-            peer.on('open', () => {
-                const targetId = ID_PREFIX + pin;
-                currentCall = peer.call(targetId, localStream);
-
-                // Tampilkan video lokal sebagai monitor di HP pengirim
-                renderVideoStream(localStream);
-                document.getElementById('viewscreen').muted = true; // bisukan lokal agar tidak gema balik
-
-                applyUILayout(pin);
-                updateStatus("Transmisi Aktif! Layar/Kamera sedang dikirim.");
-            });
-
-            peer.on('error', handleErrorEvent);
-
-            // Jika user menekan tombol hentikan berbagi bawaan OS
-            localStream.getVideoTracks()[0].onended = () => { killConnection(); };
-
-        } catch (err) {
-            console.error(err);
-            updateStatus("Gagal Transmisi: " + err.message);
-        }
+        });
     }
 
-    // ================= 3. FUNGSI UTILITAS PENDUKUNG =================
-    function renderVideoStream(stream) {
-        const video = document.getElementById('viewscreen');
-        document.getElementById('videoArea').style.display = 'block';
-        video.srcObject = stream;
-        video.play().catch(e => console.log("Autoplay dicegah browser, menanti interaksi user."));
-    }
-
-    function applyUILayout(pin) {
-        document.getElementById('setupSection').style.display = 'none';
-        document.getElementById('activeSection').style.display = 'block';
-        document.getElementById('btnDisconnect').style.display = 'block';
-        document.getElementById('pinDisplay').innerText = pin;
-    }
-
-    function handleErrorEvent(err) {
-        if (err.type === 'peer-unavailable') {
-            updateStatus("❌ GAGAL: Kamar tidak ditemukan! Pastikan TV/PC sudah klik tombol 'Jadikan PENERIMA' terlebih dahulu.");
-        } else if (err.type === 'unavailable-id') {
-            updateStatus("❌ GAGAL: PIN sudah dipakai pengguna lain di server cloud. Ganti dengan PIN lain.");
-        } else {
-            updateStatus("Gangguan Jaringan: " + err.message);
-        }
-    }
-
-    function killConnection() {
-        updateStatus("Jaringan dibersihkan. Menunggu instruksi...");
-        if (currentCall) currentCall.close();
-        if (peer) peer.destroy();
+    // ================= FITUR MENGALIHKAN KAMAR DEPAN / BELAKANG =================
+    async function flipCamera() {
+        if(isSharingScreen) return alert("Matikan share screen terlebih dahulu sebelum memutar kamera!");
+        
+        currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+        document.getElementById('flipBtn').innerText = currentFacingMode === "user" ? "🔄 Alihkan Kamera (Belakang)" : "🔄 Alihkan Kamera (Depan)";
+        
         if (localStream) {
+            logStatus("Mengalihkan lensa kamera...");
+            await getMedia({
+                audio: isMicOn,
+                video: { facingMode: currentFacingMode, width: 640, height: 480 }
+            });
+
+            // Jika sedang dalam panggilan aktif, perbarui track video ke lawan bicara secara langsung
+            if (currentCall && currentCall.peerConnection) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                if (sender) sender.replaceTrack(videoTrack);
+            }
+            logStatus("Kamera dialihkan.");
+        }
+    }
+
+    // ================= FITUR BAGIKAN LAYAR (SHARE SCREEN) =================
+    async function toggleScreenShare() {
+        if(!isSharingScreen) {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                isSharingScreen = true;
+                document.getElementById('shareBtn').innerText = "🛑 Hentikan Share Screen";
+                
+                // Ganti track video lokal
+                const videoTrack = screenStream.getVideoTracks()[0];
+                document.getElementById('localVideo').srcObject = screenStream;
+
+                if (currentCall && currentCall.peerConnection) {
+                    const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(videoTrack);
+                }
+
+                videoTrack.onended = () => { toggleScreenShare(); }; // auto balik ke kamera jika share di-stop lewat sistem OS
+            } catch (err) {
+                console.error(err);
+            }
+        } else {
+            isSharingScreen = false;
+            document.getElementById('shareBtn').innerText = "💻 Bagikan Layar";
+            // Kembalikan ke kamera normal
+            await getMedia({ audio: isMicOn, video: { facingMode: currentFacingMode } });
+            if (currentCall && currentCall.peerConnection) {
+                const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
+            }
+        }
+    }
+
+    // ================= KONTROL AUDIO & VIDEO MUTE =================
+    function toggleMic() {
+        isMicOn = !isMicOn;
+        if(localStream) {
+            localStream.getAudioTracks()[0].enabled = isMicOn;
+            document.getElementById('micBtn').classList.toggle('active', isMicOn);
+            document.getElementById('micBtn').innerText = isMicOn ? "🎙️ Mic: ON" : "🎙️ Mic: OFF";
+        }
+    }
+
+    function toggleCam() {
+        isCamOn = !isCamOn;
+        if(localStream) {
+            localStream.getVideoTracks()[0].enabled = isCamOn;
+            document.getElementById('camBtn').classList.toggle('active', isCamOn);
+            document.getElementById('camBtn').innerText = isCamOn ? "📷 Cam: ON" : "📷 Cam: OFF";
+        }
+    }
+
+    // ================= RESET DAN KELUAR JARINGAN =================
+    function leaveRoom() {
+        if(currentCall) currentCall.close();
+        if(peer) peer.destroy();
+        if(localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
-
-        document.getElementById('viewscreen').srcObject = null;
-        document.getElementById('videoArea').style.display = 'none';
-        document.getElementById('activeSection').style.display = 'none';
-        document.getElementById('btnDisconnect').style.display = 'none';
-        document.getElementById('setupSection').style.display = 'block';
+        document.getElementById('localVideo').srcObject = null;
+        document.getElementById('remoteVideo').srcObject = null;
+        document.getElementById('btnLeave').style.display = "none";
+        logStatus("Offline. Telah keluar dari kamar.");
     }
 </script>
 
