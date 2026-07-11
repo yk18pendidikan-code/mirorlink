@@ -3,276 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-time Web MirrorLink</title>
-    <!-- Menggunakan Paho MQTT untuk signaling WebRTC tanpa setup server backend sendiri -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <title>Universal MirrorLink & Stream</title>
+    <!-- PeerJS untuk koneksi real-time P2P & pembuatan ID Otomatis -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --primary: #3b82f6;
-            --text: #f8fafc;
+            --bg: #0b0f19;
+            --card: #151f32;
+            --primary: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
+            background-color: var(--bg);
             color: var(--text);
-            margin: 0;
             padding: 20px;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
             min-height: 100vh;
         }
-        .container {
-            max-width: 800px;
+        .app-container {
             width: 100%;
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 650px;
+            background: var(--card);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             text-align: center;
         }
-        h1 { margin-bottom: 20px; font-size: 1.8rem; }
-        .setup-zone {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 20px;
+        h1 { font-size: 1.8rem; margin-bottom: 8px; color: #fff; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 25px; }
+        
+        .id-box {
+            background: rgba(37, 99, 235, 0.1);
+            border: 1px dashed var(--primary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
         }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+        .id-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; }
+        .id-value { font-size: 1.6rem; font-weight: bold; color: var(--primary); margin-top: 5px; letter-spacing: 1px; }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted); }
+        input {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg);
+            border: 1px solid #2a3950;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        input:focus { border-color: var(--primary); outline: none; }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
         }
         button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 24px;
+            padding: 14px;
             font-size: 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: opacity 0.2s;
             font-weight: 600;
-        }
-        button:hover { opacity: 0.9; }
-        button.secondary { background-color: #475569; }
-        input {
-            padding: 12px;
-            font-size: 1rem;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
             color: white;
-            text-align: center;
         }
-        .room-display {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #10b981;
-            background: #064e3b;
+        .btn-blue { background-color: var(--primary); }
+        .btn-green { background-color: var(--success); }
+        .btn-red { background-color: var(--danger); width: 100%; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background-color: #374151; color: #6b7280; cursor: not-allowed; transform: none; }
+
+        .status-bar {
+            margin-top: 15px;
             padding: 10px;
             border-radius: 6px;
-            display: inline-block;
-            margin: 10px 0;
+            font-size: 0.9rem;
+            background: #1e293b;
+            color: #cbd5e1;
         }
-        #videoContainer {
-            margin-top: 20px;
-            width: 100%;
+
+        #videoWrapper {
+            margin-top: 25px;
             display: none;
-            background: #000;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
+            background: #000;
+            border: 1px solid #2a3950;
         }
         video {
             width: 100%;
-            max-height: 70vh;
+            max-height: 60vh;
+            display: block;
             object-fit: contain;
         }
-        .status { color: #94a3b8; font-style: italic; margin-top: 10px; }
-        .hidden { display: none !important; }
+        
+        .protocol-warning {
+            background: #7c2d12;
+            color: #ffedd5;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Real-time Web MirrorLink</h1>
+<div class="app-container">
+    <h1>Universal MirrorLink</h1>
+    <p class="subtitle">Koneksi Real-Time Antar Perangkat Tanpa Delay</p>
+
+    <!-- Peringatan jika dijalankan tanpa HTTPS di HP -->
+    <div id="protocolWarning" class="protocol-warning">
+        ⚠️ <strong>Peringatan Keamanan:</strong> Anda membuka halaman ini menggunakan koneksi HTTP biasa atau File lokal. Fitur "Bagikan Layar" mungkin akan diblokir oleh sistem HP sebelum Anda memindahkannya ke hosting berprotokol <strong>HTTPS</strong>.
+    </div>
+
+    <!-- Kotak ID Otomatis Perangkat Ini -->
+    <div class="id-box">
+        <div class="id-label">ID Otomatis Perangkat Anda</div>
+        <div id="myIdDisplay" class="id-value">Menghubungkan jaringan...</div>
+    </div>
+
+    <!-- Input untuk Menghubungkan ke Perangkat Lain -->
+    <div class="form-group">
+        <label for="targetPeerId">Masukkan ID Perangkat Tujuan (Penerima/Pengirim):</label>
+        <input type="text" id="targetPeerId" placeholder="Contoh: ab12cd34">
+    </div>
+
+    <!-- Opsi Aksi -->
+    <div class="btn-grid">
+        <button id="btnScreen" class="btn-blue" onclick="startShare('screen')">💻 Bagikan Layar</button>
+        <button id="btnCamera" class="btn-blue" onclick="startShare('camera')">📷 Bagikan Kamera</button>
+    </div>
     
-    <!-- Menu Awal Pilihan Mode -->
-    <div id="modeSelection" class="btn-group">
-        <button onclick="initMode('sender')">Bagikan Layar (Sender)</button>
-        <button onclick="initMode('receiver')" class="secondary">Terima Layar (Receiver)</button>
-    </div>
+    <button id="btnDisconnect" class="btn-red style hidden" style="display:none;" onclick="disconnectCall()">Putuskan Koneksi</button>
 
-    <!-- Tampilan untuk Sender (HP/Laptop yang mau di-mirror) -->
-    <div id="senderZone" class="setup-zone hidden">
-        <p>Masukkan Room ID yang muncul di layar penerima:</p>
-        <input type="text" id="inputRoomId" placeholder="Contoh: 4921">
-        <button onclick="startSender()">Mulai Mirroring</button>
-    </div>
+    <!-- Indikator Status Pemantau -->
+    <div id="statusInfo" class="status-bar">Memulai sistem PeerJS...</div>
 
-    <!-- Tampilan untuk Receiver (Laptop/TV penerima tampilan) -->
-    <div id="receiverZone" class="setup-zone hidden">
-        <p>Gunakan Room ID ini di perangkat pengirim:</p>
-        <div id="roomDisplay" class="room-display">-</div>
-        <p class="status">Menunggu koneksi dari pengirim...</p>
-    </div>
-
-    <div id="statusMessage" class="status">Pilih mode untuk memulai</div>
-
-    <!-- Tempat Menampilkan Hasil Mirroring (Real-time) -->
-    <div id="videoContainer">
-        <video id="mirrorVideo" autoplay playsinline controls></video>
+    <!-- Pemutar Video Real-Time -->
+    <div id="videoWrapper">
+        <video id="remoteVideo" autoplay playsinline controls></video>
     </div>
 </div>
 
 <script>
-// Konfigurasi WebRTC & Signaling Broker Gratis
-const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-let mqttClient;
-let peerConnection;
-let localStream;
-let myMode = '';
-let roomId = '';
+    let peer;
+    let currentCall = null;
+    let localStream = null;
 
-// Broker MQTT publik gratis untuk menjembatani koneksi awal (signaling)
-const MQTT_BROKER = "broker.hivemq.com"; 
-const MQTT_PORT = 8000;
-
-function initMode(mode) {
-    myMode = mode;
-    document.getElementById('modeSelection').classList.add('hidden');
-    
-    if (mode === 'sender') {
-        document.getElementById('senderZone').classList.remove('hidden');
-        updateStatus('Siap membagikan layar. Silakan masukkan Room ID Perangkat Penerima.');
-    } else {
-        document.getElementById('receiverZone').classList.remove('hidden');
-        // Membuat ID acak 4 digit sebagai pengganti IP otomatis
-        roomId = Math.floor(1000 + Math.random() * 9000).toString();
-        document.getElementById('roomDisplay').innerText = roomId;
-        setupMQTT(roomId);
+    // Deteksi protokol keamanan web
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        document.getElementById('protocolWarning').style.display = 'block';
     }
-}
 
-function updateStatus(msg) {
-    document.getElementById('statusMessage').innerText = msg;
-}
-
-// Setup jaringan komunikasi antar perangkat menggunakan MQTT broker
-function setupMQTT(targetRoom) {
-    roomId = targetRoom;
-    const clientId = "mirror_" + Math.random().toString(16).substr(2, 8);
-    mqttClient = new Paho.MQTT.Client(MQTT_BROKER, Number(MQTT_PORT), clientId);
-
-    mqttClient.onMessageArrived = handleSignalingMessage;
-    mqttClient.onConnectionLost = () => updateStatus("Koneksi jaringan terputus. Mencoba menghubungkan kembali...");
-
-    mqttClient.connect({
-        onSuccess: () => {
-            // Subscribe ke channel khusus room ini
-            mqttClient.subscribe("mirrorlink/" + roomId + "/#");
-            updateStatus("Terhubung ke jaringan. Menunggu Perangkat Pengirim...");
-        },
-        useSSL: false
+    // 1. Inisialisasi PeerJS Server Publik Gratis
+    peer = new Peer({
+        config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
     });
-}
 
-// Alur kerja WebRTC untuk Pengirim Layar (Sender)
-async function startSender() {
-    const targetRoom = document.getElementById('inputRoomId').value.trim();
-    if (!targetRoom) return alert("Masukkan Room ID terlebih dahulu!");
-    
-    updateStatus("Meminta izin menangkap layar...");
-    try {
-        // Menangkap layar (Untuk HP sebagian browser mewajibkan interaksi user, gunakan Chrome/Firefox terbaru)
-        localStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: "always" },
-            audio: false // Ubah ke true jika ingin membagikan suara sistem (tergantung OS)
-        });
-        
-        setupMQTT(targetRoom);
-        
-        // Buat Peer Connection
-        peerConnection = new RTCPeerConnection(rtcConfig);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    // Ketika server sukses memberikan ID Otomatis
+    peer.on('open', (id) => {
+        document.getElementById('myIdDisplay').innerText = id;
+        logStatus("Sistem siap. Bagikan ID Anda atau masukkan ID target.");
+    });
 
-        // Kirim sinyal kandidat jaringan (ICE) jika ditemukan
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                sendSignal('ice', event.candidate);
-            }
-        };
-
-        // Buat Penawaran Koneksi (Offer)
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        sendSignal('offer', offer);
-        
-        // Tampilkan video lokal di sender sebagai preview
-        document.getElementById('videoContainer').style.display = 'block';
-        document.getElementById('mirrorVideo').srcObject = localStream;
-        document.getElementById('mirrorVideo').muted = true; // Mute agar tidak feedback gema
-        
-        updateStatus("Sedang menghubungkan real-time ke Penerima...");
-    } catch (err) {
+    peer.on('error', (err) => {
         console.error(err);
-        updateStatus("Gagal mengakses layar: " + err.message);
-    }
-}
+        logStatus("Terjadi gangguan jaringan: " + err.type);
+    });
 
-// Mengirim data sinyal via MQTT
-function sendSignal(type, data) {
-    const topic = `mirrorlink/${roomId}/${myMode === 'sender' ? 'client' : 'server'}`;
-    const message = new Paho.MQTT.Message(JSON.stringify({ type, data }));
-    message.destinationName = topic;
-    mqttClient.send(message);
-}
-
-// Memproses sinyal masuk dari perangkat sebelah
-async function handleSignalingMessage(message) {
-    const topic = message.destinationName;
-    const payload = JSON.parse(message.payloadString);
-    
-    // Abaikan pesan dari diri sendiri
-    if (myMode === 'sender' && topic.endsWith('/client')) return;
-    if (myMode === 'receiver' && topic.endsWith('/server')) return;
-
-    if (payload.type === 'offer' && myMode === 'receiver') {
-        // Penerima menerima tawaran dari pengirim
-        peerConnection = new RTCPeerConnection(rtcConfig);
+    // 2. MENERIMA PANGGILAN (Bertindak sebagai Receiver/Penerima Layar)
+    peer.on('call', (call) => {
+        logStatus("Menerima sambungan masuk, menghubungkan video...");
+        currentCall = call;
         
-        // Tangkap video real-time yang masuk
-        peerConnection.ontrack = event => {
-            document.getElementById('videoContainer').style.display = 'block';
-            document.getElementById('mirrorVideo').srcObject = event.streams[0];
-            updateStatus("Mirroring Aktif (Real-time)!");
-        };
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) sendSignal('ice', event.candidate);
-        };
-
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        sendSignal('answer', answer);
+        // Langsung jawab panggilan tanpa mengirim balik video kita sendiri
+        call.answer(); 
         
-    } else if (payload.type === 'answer' && myMode === 'sender') {
-        // Pengirim menerima persetujuan dari penerima
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data));
-        updateStatus("Terhubung! Layar Anda sedang dibagikan secara real-time.");
+        call.on('stream', (remoteStream) => {
+            showVideo(remoteStream);
+            logStatus("Koneksi Aktif! Menampilkan layar secara real-time.");
+            toggleDisconnectBtn(true);
+        });
+
+        call.on('close', () => {
+            cleanUpUI();
+        });
+    });
+
+    // 3. MENGIRIM TAMPILAN (Bertindak sebagai Sender/Sumber Layar)
+    async function startShare(mode) {
+        const targetId = document.getElementById('targetPeerId').value.trim();
+        if (!targetId) {
+            alert("Harap masukkan ID Perangkat Tujuan terlebih dahulu!");
+            return;
+        }
+
+        logStatus("Meminta izin akses media perangkat...");
         
-    } else if (payload.type === 'ice' && peerConnection) {
-        // Sinkronisasi jalur koneksi internet P2P terbaik
         try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(payload.data));
-        } catch (e) {
-            console.error("Gagal menambahkan ICE candidate", e);
+            if (mode === 'screen') {
+                // Berbagi Layar (Laptop / Android modern)
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    throw new Error("Browser/Perangkat Anda memblokir fitur Berbagi Layar web. Gunakan opsi 'Bagikan Kamera' atau buka di Laptop.");
+                }
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            } else {
+                // Berbagi Kamera (Universal untuk semua HP termasuk iPhone)
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" }, // Kamera belakang HP jika ada
+                    audio: false 
+                });
+            }
+
+            logStatus("Menghubungkan langsung ke target ID...");
+            
+            // Lakukan panggilan ke target dengan mengirimkan video stream kita
+            const call = peer.call(targetId, localStream);
+            currentCall = call;
+
+            // Tampilkan preview video lokal di perangkat pengirim juga
+            showVideo(localStream);
+            toggleDisconnectBtn(true);
+
+            call.on('close', () => {
+                cleanUpUI();
+            });
+
+            logStatus("Berhasil! Tampilan Anda saat ini sedang dibagikan.");
+
+            // Jika media stream dihentikan lewat panel browser bawaan
+            localStream.getVideoTracks()[0].onended = () => {
+                disconnectCall();
+            };
+
+        } catch (error) {
+            console.error(error);
+            logStatus("Gagal: " + error.message);
         }
     }
-}
+
+    // Fungsi Pembantu
+    function logStatus(text) {
+        document.getElementById('statusInfo').innerText = text;
+    }
+
+    function showVideo(stream) {
+        const video = document.getElementById('remoteVideo');
+        const wrapper = document.getElementById('videoWrapper');
+        video.srcObject = stream;
+        wrapper.style.display = 'block';
+    }
+
+    function toggleDisconnectBtn(show) {
+        const btn = document.getElementById('btnDisconnect');
+        const btnGrid = document.querySelector('.btn-grid');
+        if (show) {
+            btn.style.display = 'block';
+            btnGrid.style.display = 'none';
+        } else {
+            btn.style.display = 'none';
+            btnGrid.style.display = 'grid';
+        }
+    }
+
+    function disconnectCall() {
+        if (currentCall) currentCall.close();
+        cleanUpUI();
+    }
+
+    function cleanUpUI() {
+        logStatus("Koneksi diputuskan.");
+        toggleDisconnectBtn(false);
+        
+        const video = document.getElementById('remoteVideo');
+        video.srcObject = null;
+        document.getElementById('videoWrapper').style.display = 'none';
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+    }
 </script>
+
 </body>
 </html>
