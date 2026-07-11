@@ -2,344 +2,124 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Red-White Connect Pro</title>
+    <title>Manual Control Center</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        /* TEMA PUTIH & ORNAMEN MERAH */
-        :root {
-            --bg-color: #f8f9fa;
-            --surface: #ffffff;
-            --primary-red: #d90429;
-            --light-red: #ef233c;
-            --text-dark: #2b2d42;
-            --text-muted: #8d99ae;
-            --shadow: 0 10px 30px rgba(217, 4, 41, 0.15);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh; overflow: hidden; }
-
-        /* ================= LOBBY (MENU UTAMA) ================= */
-        #lobby { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
-        .card { 
-            background: var(--surface); width: 100%; max-width: 420px; padding: 35px 25px; 
-            border-radius: 24px; box-shadow: var(--shadow); border-top: 5px solid var(--primary-red);
-            text-align: center; position: relative; overflow: hidden;
-        }
+        :root { --main-red: #d90429; --bg: #ffffff; --text: #2b2d42; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 20px; }
         
-        /* Ornamen Merah Abstrak */
-        .card::before {
-            content: ''; position: absolute; top: -50px; right: -50px; width: 100px; height: 100px;
-            background: rgba(239, 35, 60, 0.1); border-radius: 50%;
-        }
-
-        h1 { font-size: 1.8rem; color: var(--primary-red); margin-bottom: 5px; font-weight: 800; }
-        p.subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 25px; }
-
-        .input-box {
-            width: 100%; padding: 15px; border: 2px solid #edf2f4; border-radius: 12px;
-            font-size: 1.2rem; text-align: center; font-weight: bold; color: var(--text-dark);
-            outline: none; transition: 0.3s; margin-bottom: 25px; background: #fdfdfd;
-        }
-        .input-box:focus { border-color: var(--light-red); box-shadow: 0 0 0 4px rgba(239, 35, 60, 0.1); }
-
-        .menu-section { background: #fff; border: 1px solid #edf2f4; border-radius: 16px; padding: 15px; margin-bottom: 15px; }
-        .menu-title { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; text-align: left; letter-spacing: 1px; }
-
-        .btn {
-            width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 1rem;
-            font-weight: 600; cursor: pointer; transition: 0.2s; color: #fff; margin-bottom: 10px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
+        .container { max-width: 500px; margin: auto; }
+        .box { border: 2px solid var(--main-red); padding: 20px; border-radius: 15px; margin-bottom: 20px; }
         
-        .btn-red { background: linear-gradient(135deg, var(--light-red), var(--primary-red)); box-shadow: 0 4px 15px rgba(217, 4, 41, 0.3); }
-        .btn-red:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(217, 4, 41, 0.4); }
-        .btn-outline { background: transparent; border: 2px solid var(--primary-red); color: var(--primary-red); }
-        .btn-outline:hover { background: rgba(239, 35, 60, 0.05); }
-
-        /* ================= MODE 1-ARAH (RECEIVER/PENERIMA TV) ================= */
-        #receiverMode { display: none; width: 100vw; height: 100vh; background: #000; position: relative; }
-        .standby-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; }
-        .standby-text h2 { font-size: 2.5rem; color: var(--light-red); margin-bottom: 10px; }
-        #receiverVideo { width: 100%; height: 100%; object-fit: contain; }
-
-        /* ================= MODE 2-ARAH (VIDEO CALL MODERN) ================= */
-        #vcMode { display: none; width: 100vw; height: 100vh; position: relative; background: #1a1a1a; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; }
         
-        /* Video Lawan (Layar Penuh) */
-        #vcRemoteVideo { width: 100%; height: 100%; object-fit: cover; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 10px; transition: 0.3s; }
+        .btn-red { background: var(--main-red); color: white; }
+        .btn-white { background: white; border: 2px solid var(--main-red); color: var(--main-red); }
         
-        /* Video Kita (PIP Melayang Premium) */
-        .pip-cam {
-            position: absolute; top: 20px; right: 20px; width: 120px; height: 180px;
-            border-radius: 16px; overflow: hidden; border: 3px solid var(--surface);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.5); z-index: 10; background: #000;
-        }
-        #vcLocalVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-
-        /* Header Info Kamar */
-        .vc-header {
-            position: absolute; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.9);
-            padding: 8px 15px; border-radius: 30px; z-index: 10; display: flex; align-items: center;
-            gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); backdrop-filter: blur(5px);
-        }
-        .vc-dot { width: 10px; height: 10px; background: var(--primary-red); border-radius: 50%; animation: pulse 1.5s infinite; }
-        .vc-room-text { font-weight: bold; color: var(--text-dark); font-size: 0.9rem; }
-
-        /* Kontrol Bawah (Modern Glassmorphism Putih-Merah) */
-        .vc-controls {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px);
-            padding: 15px 25px; border-radius: 40px; display: flex; gap: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10; border: 1px solid rgba(255,255,255,0.5);
-        }
-
-        .ctrl-icon {
-            width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
-            background: #edf2f4; color: var(--text-dark); transition: 0.3s;
-        }
-        .ctrl-icon:hover { background: #e2eafc; }
-        .ctrl-icon.off { background: rgba(239, 35, 60, 0.1); color: var(--primary-red); border: 1px solid var(--light-red); }
-        
-        .btn-end { background: var(--primary-red); color: white; width: 60px; height: 60px; }
-        .btn-end:hover { background: #b00020; transform: scale(1.05); }
-
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(217, 4, 41, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(217, 4, 41, 0); } 100% { box-shadow: 0 0 0 0 rgba(217, 4, 41, 0); } }
-
-        #statusText { font-size: 0.8rem; color: var(--primary-red); margin-top: 15px; font-weight: bold; }
+        #videoArea { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; display: none; z-index: 100; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .close-btn { position: absolute; top: 20px; right: 20px; z-index: 101; background: var(--main-red); color: white; border: none; padding: 10px 20px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <!-- ================= MENU LOBBY UTAMA ================= -->
-    <div id="lobby">
-        <div class="card">
-            <h1>Red-White Connect</h1>
-            <p class="subtitle">Platform Transmisi P2P Modern</p>
-            
-            <input type="text" id="roomId" class="input-box" placeholder="Masukkan ID Kamar..." value="KAMAR-1">
-            
-            <!-- Panel 2-Arah -->
-            <div class="menu-section">
-                <div class="menu-title">Video Call (2-Arah)</div>
-                <button class="btn btn-red" onclick="start2WayVC()">🎥 Mulai / Gabung Video Call</button>
-            </div>
+<div class="container">
+    <h2 style="color:var(--main-red)">Manual Control Center</h2>
+    
+    <!-- Input ID Manual -->
+    <label>ID Kamar (Tentukan Sendiri):</label>
+    <input type="text" id="manualId" placeholder="Contoh: RUANG123">
 
-            <!-- Panel 1-Arah -->
-            <div class="menu-section">
-                <div class="menu-title">Broadcast Kamera / Layar (1-Arah)</div>
-                <button class="btn btn-outline" onclick="start1WaySender()">📲 Kirim Kamera Ini ke TV</button>
-                <button class="btn btn-outline" onclick="start1WayReceiver()" style="border-color:#2b2d42; color:#2b2d42;">📺 Jadikan Perangkat Ini TV</button>
-            </div>
-
-            <div id="statusText"></div>
-        </div>
+    <!-- Mode Receiver (TV) -->
+    <div class="box">
+        <h3 style="margin-top:0">1. Mode Penerima (TV)</h3>
+        <button class="btn-white" onclick="startReceiver()">Jadikan Perangkat Ini PENERIMA</button>
     </div>
 
-    <!-- ================= MODE 1-ARAH (PENERIMA/TV) ================= -->
-    <div id="receiverMode">
-        <div class="standby-text" id="tvStandbyText">
-            <h2 id="tvPin">---</h2>
-            <p>Menunggu Koneksi Kamera / Layar Masuk...</p>
-        </div>
-        <video id="receiverVideo" autoplay playsinline></video>
-        <!-- Tombol Kembali Melayang -->
-        <button onclick="window.location.reload()" style="position:absolute; top:20px; right:20px; padding:10px 20px; background:var(--primary-red); color:#fff; border:none; border-radius:8px; cursor:pointer; z-index:20;">Keluar TV</button>
+    <!-- Mode Pengirim -->
+    <div class="box">
+        <h3 style="margin-top:0">2. Mode Pengirim (Sender)</h3>
+        <button class="btn-red" onclick="startSender('camera')">Kirim KAMERA</button>
+        <button class="btn-red" onclick="startSender('screen')">Kirim LAYAR</button>
     </div>
 
-    <!-- ================= MODE 2-ARAH (VIDEO CALL) ================= -->
-    <div id="vcMode">
-        <div class="vc-header">
-            <div class="vc-dot"></div>
-            <span class="vc-room-text" id="vcRoomName">Room ID</span>
-        </div>
-
-        <video id="vcRemoteVideo" autoplay playsinline></video>
-        
-        <div class="pip-cam" id="pipBox">
-            <video id="vcLocalVideo" autoplay playsinline muted></video>
-        </div>
-
-        <div class="vc-controls">
-            <button class="ctrl-icon" id="vcCamBtn" onclick="toggleCamVC()">📹</button>
-            <button class="ctrl-icon" id="vcMicBtn" onclick="toggleMicVC()">🎙️</button>
-            <button class="ctrl-icon" onclick="flipCameraVC()">🔄</button>
-            <button class="ctrl-icon" onclick="shareScreenVC()" title="Bypass Layar">💻</button>
-            <button class="ctrl-icon btn-end" onclick="window.location.reload()">✖</button>
-        </div>
+    <!-- Mode Video Call -->
+    <div class="box">
+        <h3 style="margin-top:0">3. Video Call (2 Arah)</h3>
+        <button class="btn-red" style="background:#2b2d42" onclick="startCall()">Mulai Video Call</button>
     </div>
+    
+    <div id="status" style="text-align:center; color:var(--main-red); font-weight:bold;">Status: Standby</div>
+</div>
+
+<div id="videoArea">
+    <button class="close-btn" onclick="location.reload()">Putuskan Koneksi</button>
+    <video id="view" autoplay playsinline></video>
+</div>
 
 <script>
-    const PREFIX = "red-white-";
-    let peer = null;
-    let currentCall = null;
-    let localStream = null;
+    let peer, localStream, currentCall;
 
-    let isMicOn = true;
-    let isCamOn = true;
-    let facingMode = "user"; // Kamera depan default
+    function status(msg) { document.getElementById('status').innerText = "Status: " + msg; }
 
-    function setStatus(msg) { document.getElementById('statusText').innerText = msg; }
-
-    // ================= FUNGSI 1-ARAH: PENERIMA (TV / MONITOR) =================
-    function start1WayReceiver() {
-        const id = document.getElementById('roomId').value.trim();
-        if(!id) return setStatus("⚠️ Masukkan ID Kamar!");
-
-        document.getElementById('lobby').style.display = 'none';
-        document.getElementById('receiverMode').style.display = 'block';
-        document.getElementById('tvPin').innerText = "ID: " + id;
-
-        peer = new Peer(PREFIX + id + "-TV");
+    // --- MODE 1: PENERIMA (TV) ---
+    function startReceiver() {
+        const id = document.getElementById('manualId').value;
+        if(!id) return alert("Isi ID Dulu!");
         
-        peer.on('call', (call) => {
-            currentCall = call;
-            call.answer(); // TV hanya menjawab, tidak mengirim kamera balikan
-            call.on('stream', (remoteStream) => {
-                document.getElementById('tvStandbyText').style.display = 'none';
-                document.getElementById('receiverVideo').srcObject = remoteStream;
-            });
+        peer = new Peer(id);
+        status("Menunggu panggilan di ID: " + id);
+        
+        peer.on('call', call => {
+            call.answer();
+            document.getElementById('videoArea').style.display = 'block';
+            call.on('stream', s => document.getElementById('view').srcObject = s);
+            status("Menerima Sinyal...");
         });
     }
 
-    // ================= FUNGSI 1-ARAH: PENGIRIM (HP JADI CCTV/SENDER) =================
-    async function start1WaySender() {
-        const id = document.getElementById('roomId').value.trim();
-        if(!id) return setStatus("⚠️ Masukkan ID TV Tujuan!");
+    // --- MODE 2: PENGIRIM (1-ARAH) ---
+    async function startSender(type) {
+        const id = document.getElementById('manualId').value;
+        if(!id) return alert("Isi ID Tujuan!");
 
         try {
-            setStatus("Mengakses Kamera...");
-            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+            if(type === 'camera') localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            else localStream = await navigator.mediaDevices.getDisplayMedia({video:true});
             
             peer = new Peer();
             peer.on('open', () => {
-                setStatus("Menghubungkan ke TV...");
-                currentCall = peer.call(PREFIX + id + "-TV", localStream);
-                
-                // Ubah UI HP menjadi remote simpel (disembunyikan lobby)
-                document.body.innerHTML = `
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8f9fa; text-align:center;">
-                        <h2 style="color:#d90429; margin-bottom:20px;">Berhasil Terhubung!</h2>
-                        <p style="margin-bottom:30px; color:#8d99ae;">Kamera belakang HP ini sedang dipancarkan ke TV/Monitor (ID: ${id})</p>
-                        <button onclick="window.location.reload()" style="padding:15px 30px; background:#d90429; color:white; border:none; border-radius:12px; font-size:1.1rem; cursor:pointer;">🛑 Hentikan Transmisi</button>
-                    </div>
-                `;
+                currentCall = peer.call(id, localStream);
+                status("Mengirim ke " + id);
+                document.getElementById('videoArea').style.display = 'block';
+                document.getElementById('view').srcObject = localStream;
             });
-        } catch (e) {
-            setStatus("Akses Kamera ditolak!");
-        }
+        } catch(e) { status("Gagal akses: " + e.message); }
     }
 
-    // ================= FUNGSI 2-ARAH: VIDEO CALL MODERN =================
-    async function start2WayVC() {
-        const id = document.getElementById('roomId').value.trim();
-        if(!id) return setStatus("⚠️ Masukkan ID Kamar!");
+    // --- MODE 3: VIDEO CALL (2-ARAH) ---
+    async function startCall() {
+        const id = document.getElementById('manualId').value;
+        if(!id) return alert("Isi ID!");
 
-        try {
-            setStatus("Membuka Kamera...");
-            localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: true });
-            
-            document.getElementById('lobby').style.display = 'none';
-            document.getElementById('vcMode').style.display = 'block';
-            document.getElementById('vcRoomName').innerText = "Ruang: " + id;
-            document.getElementById('vcLocalVideo').srcObject = localStream;
+        localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+        document.getElementById('videoArea').style.display = 'block';
+        document.getElementById('view').srcObject = localStream;
 
-            // Logika Room VC (Host / Guest)
-            peer = new Peer(PREFIX + id + "-VC");
-
-            peer.on('open', () => {
-                // Kita yang bikin kamar pertama, nunggu orang masuk
-                console.log("Room VC dibuat, menunggu lawan bicara...");
-            });
-
-            peer.on('call', (call) => {
-                // Ada yang nelpon kita
-                currentCall = call;
-                call.answer(localStream); // Kirim video kita
-                call.on('stream', (remoteStream) => { document.getElementById('vcRemoteVideo').srcObject = remoteStream; });
-            });
-
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    // Berarti kamar udah ada orangnya, kita yang nelpon dia!
-                    peer = new Peer();
-                    peer.on('open', () => {
-                        currentCall = peer.call(PREFIX + id + "-VC", localStream);
-                        currentCall.on('stream', (remoteStream) => { document.getElementById('vcRemoteVideo').srcObject = remoteStream; });
-                    });
-                }
-            });
-
-        } catch (e) {
-            setStatus("Gagal akses kamera/mic!");
-        }
-    }
-
-    // ---- KONTROL MEDIA VIDEO CALL ----
-    function toggleMicVC() {
-        isMicOn = !isMicOn;
-        localStream.getAudioTracks()[0].enabled = isMicOn;
-        const btn = document.getElementById('vcMicBtn');
-        btn.classList.toggle('off', !isMicOn);
-        btn.innerText = isMicOn ? "🎙️" : "🔇";
-    }
-
-    function toggleCamVC() {
-        isCamOn = !isCamOn;
-        localStream.getVideoTracks()[0].enabled = isCamOn;
-        const btn = document.getElementById('vcCamBtn');
-        btn.classList.toggle('off', !isCamOn);
-        btn.innerText = isCamOn ? "📹" : "🚫";
-        document.getElementById('pipBox').style.opacity = isCamOn ? "1" : "0.2";
-    }
-
-    async function flipCameraVC() {
-        facingMode = facingMode === "user" ? "environment" : "user";
-        if(localStream) localStream.getTracks().forEach(t => t.stop());
+        peer = new Peer(id + "-HOST"); // Tambah suffix hanya internal
         
-        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: isMicOn });
-        
-        const localVid = document.getElementById('vcLocalVideo');
-        localVid.srcObject = localStream;
-        localVid.style.transform = facingMode === "environment" ? "scaleX(1)" : "scaleX(-1)";
+        // Panggil pihak lain
+        currentCall = peer.call(id + "-GUEST", localStream);
+        currentCall.on('stream', s => document.getElementById('view').srcObject = s);
 
-        if(currentCall) {
-            const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-            sender.replaceTrack(localStream.getVideoTracks()[0]);
-        }
-    }
-
-    // ---- FITUR SHARE SCREEN / CAST (TETAP BUTUH IZIN OS) ----
-    async function shareScreenVC() {
-        try {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            
-            // Ganti video lokal jadi share screen
-            document.getElementById('vcLocalVideo').srcObject = screenStream;
-            document.getElementById('vcLocalVideo').style.transform = "scaleX(1)";
-
-            // Ganti data yang dikirim ke lawan bicara
-            if(currentCall) {
-                const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-                sender.replaceTrack(screenStream.getVideoTracks()[0]);
-            }
-
-            // Jika user menekan tombol stop share screen dari OS
-            screenStream.getVideoTracks()[0].onended = () => {
-                document.getElementById('vcLocalVideo').srcObject = localStream;
-                document.getElementById('vcLocalVideo').style.transform = facingMode === "environment" ? "scaleX(1)" : "scaleX(-1)";
-                if(currentCall) {
-                    const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-                    sender.replaceTrack(localStream.getVideoTracks()[0]);
-                }
-            };
-        } catch(e) {
-            alert("Share Screen dibatalkan atau ditolak sistem.");
-        }
+        // Jika ada yang nelpon balik
+        peer.on('call', call => {
+            call.answer(localStream);
+            call.on('stream', s => document.getElementById('view').srcObject = s);
+        });
     }
 </script>
-
 </body>
 </html>
